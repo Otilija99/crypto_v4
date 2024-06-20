@@ -16,16 +16,15 @@ use Dotenv\Dotenv;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
-// Load environment variables
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-// Instantiate the required repositories and services
+
 $currencyRepository = new CoinPaprikaApiCurrencyRepository();
 $userRepository = new SqliteUserRepository();
 $walletRepository = new SqliteWalletRepository();
 
-// Instantiate user service
+
 $userService = new UserService($userRepository);
 
 $userId = null;
@@ -81,7 +80,7 @@ if (!$walletData) {
 }
 $wallet = new Wallet($walletData['user_id'], $walletData['balance']);
 
-// Services instantiated with required dependencies
+
 $walletService = new WalletService($wallet, $walletRepository, $userId);
 $buyService = new BuyCurrencyService($currencyRepository, $walletRepository, $userId);
 $sellService = new SellCurrencyService($currencyRepository, $walletRepository, $walletService, $userId);
