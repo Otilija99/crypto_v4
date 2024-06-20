@@ -2,14 +2,12 @@
 
 namespace CryptoApp\Repositories\User;
 
-use CryptoApp\Exceptions\TransactionGetException;
-use CryptoApp\Exceptions\TransactionSaveException;
 use CryptoApp\Exceptions\UserNotFoundException;
 use CryptoApp\Exceptions\UserSaveException;
-use CryptoApp\Models\Transaction;
 use CryptoApp\Models\User;
-use Exception;
 use Medoo\Medoo;
+use Exception;
+
 class SqliteUserRepository implements UserRepository
 {
     private Medoo $database;
@@ -23,7 +21,6 @@ class SqliteUserRepository implements UserRepository
 
         $this->createTables();
     }
-
 
     private function createTables(): void
     {
@@ -39,6 +36,7 @@ class SqliteUserRepository implements UserRepository
             echo "Error: " . $e->getMessage();
         }
     }
+
     public function saveUser(User $user): void
     {
         try {
@@ -56,24 +54,28 @@ class SqliteUserRepository implements UserRepository
     {
         try {
             $userData = $this->database->get('users', '*', ['id' => $userId]);
-            return $userData ?? null;
+            return $userData ?: null;
         } catch (Exception $e) {
-            throw new UserNotFoundException("User no found: " . $e->getMessage());
+            throw new UserNotFoundException("User not found: " . $e->getMessage());
         }
     }
 
-    public function getUserByUsernameAndPassword (string $username, string $password): ?array {
+    public function getUserByUsernameAndPassword(string $username, string $password): ?array
+    {
         $hashedPassword = md5($password);
 
-        $userData = $this->database->get('users', '*', [
-            'username' => $username,
-            'password' => $hashedPassword,
-        ]);
+        try {
+            $userData = $this->database->get('users', '*', [
+                'username' => $username,
+                'password' => $hashedPassword,
+            ]);
 
-        if (!$userData) {
+            if (!$userData) {
+                throw new UserNotFoundException("User doesn't exist or incorrect password!");
+            }
+            return $userData;
+        } catch (Exception $e) {
             throw new UserNotFoundException("User doesn't exist or incorrect password!");
         }
-        return $userData;
     }
-
 }

@@ -7,22 +7,28 @@ use CryptoApp\Services\SellCurrencyService;
 use CryptoApp\Services\UserService;
 use CryptoApp\Services\WalletService;
 use CryptoApp\Models\Wallet;
+use CryptoApp\Repositories\Currency\CoinPaprikaApiCurrencyRepository;
+use CryptoApp\Repositories\User\SqliteUserRepository;
+use CryptoApp\Repositories\Wallet\SqliteWalletRepository;
 use CryptoApp\Exceptions\TransactionGetException;
 use CryptoApp\Exceptions\TransactionFailedException;
 use Dotenv\Dotenv;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
-
+// Load environment variables
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
-/** @var CurrencyRepository $currencyRepository */
-$currencyRepository = new \CryptoApp\Repositories\Currency\CoinPaprikaApiCurrencyRepository();
 
-$storage = new SqliteStorage();
+// Instantiate the required repositories and services
+$currencyRepository = new CoinPaprikaApiCurrencyRepository();
+$userRepository = new SqliteUserRepository();
+$walletRepository = new SqliteWalletRepository();
 
-$wallet = new Wallet(1000, $storage);
+// Instantiate user service
+$userService = new UserService($userRepository);
 
+$userId = null;
 
 while (true) {
     echo "\n\033[1m\033[4mCRYPTO CURRENCY APP\033[0m\n\n";
@@ -37,7 +43,8 @@ while (true) {
         case 1:
             $username = trim(readline("Enter username: "));
             $password = trim(readline("Enter password: "));
-            $userService->createUser($username, $password);
+            $userService->register($username, $password); // Use register method here
+            echo "User registered successfully.\n";
             break;
 
         case 2:
@@ -66,24 +73,23 @@ while (true) {
 }
 
 $initialBalance = 1000.0;
-$walletData = $wallet->getWallet($userId);
+$walletData = $walletRepository->getWallet($userId);
 if (!$walletData) {
     $wallet = new Wallet($userId, $initialBalance);
-    $database->saveWallet($wallet);
-    $walletData = $database->getWallet($userId);
+    $walletRepository->saveWallet($wallet);
+    $walletData = $walletRepository->getWallet($userId);
 }
 $wallet = new Wallet($walletData['user_id'], $walletData['balance']);
 
-
-$walletService = new WalletService($wallet, $database, $api, $userId);
-$buyService = new BuyCurrencyService($api, $database, $userId);
-$sellService = new SellCurrencyService($api, $database, $walletService, $userId);
+// Services instantiated with required dependencies
+$walletService = new WalletService($wallet, $walletRepository, $userId);
+$buyService = new BuyCurrencyService($currencyRepository, $walletRepository, $userId);
+$sellService = new SellCurrencyService($currencyRepository, $walletRepository, $walletService, $userId);
 
 echo "\n\033[1m\033[4mCRYPTO CURRENCY APP\033[0m\n\n";
 
 echo "Your state of wallet at the moment:\n";
 $walletService->displayWalletState();
-
 
 while (true) {
     echo "\n";
@@ -167,7 +173,7 @@ while (true) {
                 $table = new Table($output);
                 $table->setHeaders(['Type', 'Symbol', 'Amount', 'Price', 'Timestamp']);
 
-                $transactions = $database->getTransactionsByUserId($userId);
+                $transactions = $walletRepository->getTransactionsByUserId($userId);
                 foreach ($transactions as $transaction) {
                     $table->addRow([
                         $transaction->getType(),

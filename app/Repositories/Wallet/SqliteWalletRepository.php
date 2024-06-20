@@ -2,6 +2,12 @@
 
 namespace CryptoApp\Repositories\Wallet;
 
+use CryptoApp\Exceptions\UserSaveException;
+use CryptoApp\Exceptions\WalletNotFoundException;
+use CryptoApp\Exceptions\WalletUpdateException;
+use CryptoApp\Models\Wallet;
+use Medoo\Medoo;
+use Exception;
 
 class SqliteWalletRepository implements WalletRepository
 {
@@ -16,7 +22,6 @@ class SqliteWalletRepository implements WalletRepository
 
         $this->createTables();
     }
-
 
     private function createTables(): void
     {
@@ -49,9 +54,9 @@ class SqliteWalletRepository implements WalletRepository
     {
         try {
             $walletData = $this->database->get('wallets', '*', ['user_id' => $userId]);
-            return $walletData ?? null;
+            return $walletData ?: null;
         } catch (Exception $e) {
-            throw new WalletNotFoundException("Wallet no found: " . $e->getMessage());
+            throw new WalletNotFoundException("Wallet not found: " . $e->getMessage());
         }
     }
 
@@ -65,6 +70,15 @@ class SqliteWalletRepository implements WalletRepository
             ]);
         } catch (Exception $e) {
             throw new WalletUpdateException("Failed to update wallet: " . $e->getMessage());
+        }
+    }
+
+    public function getTransactionsByUserId(string $userId): array
+    {
+        try {
+            return $this->database->select('transactions', '*', ['user_id' => $userId]);
+        } catch (Exception $e) {
+            throw new TransactionGetException("Failed to get transactions: " . $e->getMessage());
         }
     }
 }

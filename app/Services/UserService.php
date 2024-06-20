@@ -2,10 +2,9 @@
 
 namespace CryptoApp\Services;
 
-use CryptoApp\Exceptions\UserLoginException;
-use CryptoApp\Models\User;
 use CryptoApp\Repositories\User\UserRepository;
-use Exception;
+use CryptoApp\Models\User;
+use CryptoApp\Exceptions\UserNotFoundException;
 
 class UserService
 {
@@ -16,31 +15,19 @@ class UserService
         $this->userRepository = $userRepository;
     }
 
-    public function createUser(string $username, string $password): void
+    public function register(string $username, string $password): void
     {
-        $hashedPassword = md5($password);
-        $newUser = new User($username, $hashedPassword);
-        $this->userRepository->save($newUser);
-        echo "User registered successfully with ID: " . $newUser->getId() . ".\n";
+        $user = new User(uniqid(), $username, md5($password));
+        $this->userRepository->saveUser($user);
     }
 
-    public function login(string $username, string $password): ?User
+    public function login(string $username, string $password): User
     {
-        try {
-            $hashedPassword = md5($password);
-            $userData = $this->userRepository->findByUsernameAndPassword($username, $hashedPassword);
-
-            if (!$userData) {
-                throw new UserLoginException("Invalid username or password.");
-            }
-
-            return new User(
-                $userData['username'],
-                $userData['password'],
-                $userData['id']
-            );
-        } catch (Exception $e) {
-            throw new UserLoginException("Login failed: " . $e->getMessage());
+        $userData = $this->userRepository->getUserByUsernameAndPassword($username, $password);
+        if ($userData === null) {
+            throw new UserNotFoundException("Invalid username or password.");
         }
+        return new User($userData['id'], $userData['username'], $userData['password']);
     }
 }
+
