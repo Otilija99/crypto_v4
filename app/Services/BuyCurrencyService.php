@@ -2,25 +2,41 @@
 
 namespace CryptoApp\Services;
 
-use CryptoApp\Storage\StorageInterface;
 use CryptoApp\Models\Transaction;
+use CryptoApp\Models\Wallet;
 use CryptoApp\Repositories\Currency\CurrencyRepository;
+use CryptoApp\Repositories\Transaction\TransactionRepository;
+use CryptoApp\Repositories\User\UserRepository;
+use CryptoApp\Repositories\Wallet\WalletRepository;
 use Exception;
+use Carbon\Carbon;
+use CryptoApp\Exceptions\UserNotFoundException;
+use CryptoApp\Exceptions\WalletNotFoundException;
+use CryptoApp\Exceptions\InsufficientBalanceException;
 
 class BuyCurrencyService
 {
-
     private CurrencyRepository $currencyRepository;
-    private DatabaseInterface $database;
+    private TransactionRepository $transactionRepository;
+    private WalletRepository $walletRepository;
+    private UserRepository $userRepository;
     private string $userId;
 
     public function __construct(
         CurrencyRepository $currencyRepository,
-        StorageInterface $storage, //Transaction Repository
-    )
+        TransactionRepository $transactionRepository,
+        WalletRepository $walletRepository,
+        UserRepository $userRepository
+    ) {
+        $this->currencyRepository = $currencyRepository;
+        $this->transactionRepository = $transactionRepository;
+        $this->walletRepository = $walletRepository;
+        $this->userRepository = $userRepository;
+    }
+
+    public function setUserId(string $userId): void
     {
-        $this->currenyRepository = $currencyRepository;
-        $this->storage=$storage;
+        $this->userId = $userId;
     }
 
     public function execute(string $symbol, float $amount): void
@@ -28,32 +44,35 @@ class BuyCurrencyService
         try {
             $currency = $this->currencyRepository->search($symbol);
             $totalCost = $currency->getPrice() * $amount;
-            $wallet = $this->database->getWallet($this->userId);
+            $wallet = $this->walletRepository->getWallet($this->userId);
+
             if (!$wallet) {
                 throw new WalletNotFoundException("User's wallet not found.");
             }
-            if ($wallet['balance'] < $totalCost) {
+
+            if ($wallet->getBalance() < $totalCost) {
                 throw new InsufficientBalanceException(
                     "Insufficient balance to buy $symbol. Required: $totalCost"
                 );
             }
-            $currentBalance = $wallet['balance'];
 
+            $currentBalance = $wallet->getBalance();
             $timestamp = Carbon::now();
+
             $transaction = new Transaction(
                 $this->userId,
                 'buy',
                 $symbol,
                 $amount,
                 $currency->getPrice(),
-                $timestamp,
+                $timestamp
             );
 
-            $this->database->saveTransaction($transaction);
+            $this->transactionRepository->saveTransaction($transaction);
 
             $newBalance = $currentBalance - ($currency->getPrice() * $amount);
-            $updatedWallet = new Wallet($this->userId, $newBalance);
-            $this->database->updateWallet($updatedWallet);
+            $wallet->setBalance($newBalance);
+            $this->walletRepository->updateWallet($wallet);
 
             echo "Successfully bought $amount $symbol.\n";
 

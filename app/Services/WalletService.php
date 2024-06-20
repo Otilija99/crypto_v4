@@ -4,51 +4,57 @@ namespace CryptoApp\Services;
 
 use CryptoApp\Exceptions\WalletNotFoundException;
 use CryptoApp\Models\Wallet;
-use CryptoApp\Database\DatabaseInterface;
-use CryptoApp\Api\ApiClientInterface;
+use CryptoApp\Repositories\Transaction\TransactionRepository;
+use CryptoApp\Repositories\User\UserRepository;
+use CryptoApp\Repositories\Wallet\WalletRepository;
+use CryptoApp\Repositories\Currency\CurrencyRepository;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Output\ConsoleOutput;
+use Carbon\Carbon;
 
 class WalletService
 {
     private const INITIAL_BALANCE = 1000.0;
 
-    private Wallet $wallet;
-    private DatabaseInterface $database;
-    private ApiClientInterface $apiClient;
+    private WalletRepository $walletRepository;
+    private TransactionRepository $transactionRepository;
+    private UserRepository $userRepository;
+    private CurrencyRepository $currencyRepository;
     private string $userId;
 
     public function __construct(
-        Wallet $wallet,
-        DatabaseInterface $database,
-        ApiClientInterface $apiClient,
+        WalletRepository $walletRepository,
+        TransactionRepository $transactionRepository,
+        UserRepository $userRepository,
+        CurrencyRepository $currencyRepository,
         string $userId
     )
     {
-        $this->wallet = $wallet;
-        $this->database = $database;
-        $this->apiClient = $apiClient;
+        $this->walletRepository = $walletRepository;
+        $this->transactionRepository = $transactionRepository;
+        $this->userRepository = $userRepository;
+        $this->currencyRepository = $currencyRepository;
         $this->userId = $userId;
     }
 
     public function createWallet(): void
     {
         $initialBalance = self::INITIAL_BALANCE;
-
-        $newWallet = new Wallet ($this->userId, $initialBalance);
-
-        $this->database->saveWallet($newWallet);
+        $newWallet = new Wallet($this->userId, $initialBalance);
+        $this->walletRepository->save($newWallet);
+        echo "Wallet created successfully.\n";
     }
 
     public function calculateWalletState(): array
     {
         $state = [];
-        $wallet = $this->database->getWallet($this->userId);
+        $wallet = $this->walletRepository->findByUserId($this->userId);
         if (!$wallet) {
             throw new WalletNotFoundException("Wallet not found for user ID: " . $this->userId);
         }
-        $balance = $this->wallet->getBalance();
-        $transactions = $this->database->getTransactionsByUserId($this->userId);
+
+        $balance = $wallet->getBalance();
+        $transactions = $this->transactionRepository->findByUserId($this->userId);
 
         foreach ($transactions as $transaction) {
             $symbol = strtoupper($transaction->getSymbol());
@@ -84,7 +90,7 @@ class WalletService
 
     public function getExistingAmountInWallet(string $symbol): float
     {
-        $transactions = $this->database->getTransactionsByUserId($this->userId);
+        $transactions = $this->transactionRepository->findByUserId($this->userId);
         $existingAmount = 0.0;
 
         foreach ($transactions as $transaction) {
@@ -110,7 +116,7 @@ class WalletService
                 $amount = $data['amount'];
                 $totalSpent = $data['totalSpent'];
                 $avgPurchasePrice = $totalSpent / $amount;
-                $currentPrice = $this->apiClient->searchCryptoCurrencies($symbol)->getPrice();
+                $currentPrice = $this->currencyRepository->findBySymbol($symbol)->getPrice();
                 $profitLoss = (($currentPrice - $avgPurchasePrice) / $avgPurchasePrice) * 100;
 
                 $table->addRow([

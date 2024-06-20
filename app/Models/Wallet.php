@@ -15,7 +15,7 @@ class Wallet
         float $balance
     )
     {
-        $this->id = Uuid::uuid4()->toString();;
+        $this->id = Uuid::uuid4()->toString();
         $this->userId = $userId;
         $this->balance = $balance;
     }

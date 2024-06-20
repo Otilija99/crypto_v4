@@ -1,38 +1,43 @@
 <?php
+
 namespace CryptoApp\Services;
 
 use CryptoApp\Exceptions\UserLoginException;
 use CryptoApp\Models\User;
-use CryptoApp\Database\DatabaseInterface;
+use CryptoApp\Repositories\User\UserRepository;
 use Exception;
 
 class UserService
 {
-    private DatabaseInterface $database;
+    private UserRepository $userRepository;
 
-    public function __construct(DatabaseInterface $database)
+    public function __construct(UserRepository $userRepository)
     {
-        $this->database = $database;
+        $this->userRepository = $userRepository;
     }
 
     public function createUser(string $username, string $password): void
     {
         $hashedPassword = md5($password);
         $newUser = new User($username, $hashedPassword);
-        $this->database->saveUser($newUser);
+        $this->userRepository->save($newUser);
         echo "User registered successfully with ID: " . $newUser->getId() . ".\n";
     }
 
     public function login(string $username, string $password): ?User
     {
         try {
-            $userData = $this->database->getUserByUsernameAndPassword($username, $password);
+            $hashedPassword = md5($password);
+            $userData = $this->userRepository->findByUsernameAndPassword($username, $hashedPassword);
+
+            if (!$userData) {
+                throw new UserLoginException("Invalid username or password.");
+            }
 
             return new User(
                 $userData['username'],
                 $userData['password'],
                 $userData['id']
-
             );
         } catch (Exception $e) {
             throw new UserLoginException("Login failed: " . $e->getMessage());

@@ -2,8 +2,6 @@
 
 require_once 'vendor/autoload.php';
 
-use CryptoApp\Api\CoinMarketApi;
-use CryptoApp\Storage\SqliteStorage;
 use CryptoApp\Services\BuyCurrencyService;
 use CryptoApp\Services\SellCurrencyService;
 use CryptoApp\Services\UserService;
