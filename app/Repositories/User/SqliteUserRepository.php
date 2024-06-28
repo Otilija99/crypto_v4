@@ -30,10 +30,11 @@ class SqliteUserRepository implements UserRepository
                 username VARCHAR(225) NOT NULL,
                 password VARCHAR(225) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )');
         } catch (Exception $e) {
-            echo "Error: " . $e->getMessage();
+            error_log("Error creating tables: " . $e->getMessage());
+            throw new Exception("Error creating tables: " . $e->getMessage());
         }
     }
 
@@ -43,7 +44,7 @@ class SqliteUserRepository implements UserRepository
             $this->database->insert('users', [
                 'id' => $user->getId(),
                 'username' => $user->getUsername(),
-                'password' => $user->getPassword(),
+                'password' => password_hash($user->getPassword(), PASSWORD_BCRYPT),
             ]);
         } catch (Exception $e) {
             throw new UserSaveException("Failed to save user: " . $e->getMessage());
@@ -62,18 +63,14 @@ class SqliteUserRepository implements UserRepository
 
     public function getUserByUsernameAndPassword(string $username, string $password): ?array
     {
-        $hashedPassword = md5($password);
-
         try {
-            $userData = $this->database->get('users', '*', [
-                'username' => $username,
-                'password' => $hashedPassword,
-            ]);
+            $userData = $this->database->get('users', '*', ['username' => $username]);
 
-            if (!$userData) {
+            if ($userData && password_verify($password, $userData['password'])) {
+                return $userData;
+            } else {
                 throw new UserNotFoundException("User doesn't exist or incorrect password!");
             }
-            return $userData;
         } catch (Exception $e) {
             throw new UserNotFoundException("User doesn't exist or incorrect password!");
         }

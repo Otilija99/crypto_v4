@@ -17,7 +17,8 @@ class UserService
 
     public function register(string $username, string $password): void
     {
-        $user = new User(uniqid(), $username, md5($password));
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+        $user = new User(uniqid(), $username, $hashedPassword);
         $this->userRepository->saveUser($user);
     }
 
@@ -27,7 +28,12 @@ class UserService
         if ($userData === null) {
             throw new UserNotFoundException("Invalid username or password.");
         }
+
+        // Verify the password
+        if (!password_verify($password, $userData['password'])) {
+            throw new UserNotFoundException("Invalid username or password.");
+        }
+
         return new User($userData['id'], $userData['username'], $userData['password']);
     }
 }
-

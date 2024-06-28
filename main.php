@@ -16,19 +16,21 @@ use Dotenv\Dotenv;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
+// Load environment variables
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-
+// Instantiate repositories
 $currencyRepository = new CoinPaprikaApiCurrencyRepository();
 $userRepository = new SqliteUserRepository();
 $walletRepository = new SqliteWalletRepository();
 
-
+// Instantiate services
 $userService = new UserService($userRepository);
 
 $userId = null;
 
+// Main menu for registration and login
 while (true) {
     echo "\n\033[1m\033[4mCRYPTO CURRENCY APP\033[0m\n\n";
     echo "1. Register\n";
@@ -42,7 +44,7 @@ while (true) {
         case 1:
             $username = trim(readline("Enter username: "));
             $password = trim(readline("Enter password: "));
-            $userService->register($username, $password); // Use register method here
+            $userService->register($username, $password);
             echo "User registered successfully.\n";
             break;
 
@@ -71,6 +73,7 @@ while (true) {
     }
 }
 
+// Initialize wallet
 $initialBalance = 1000.0;
 $walletData = $walletRepository->getWallet($userId);
 if (!$walletData) {
@@ -80,14 +83,15 @@ if (!$walletData) {
 }
 $wallet = new Wallet($walletData['user_id'], $walletData['balance']);
 
-
+// Instantiate wallet and transaction services
 $walletService = new WalletService($wallet, $walletRepository, $userId);
 $buyService = new BuyCurrencyService($currencyRepository, $walletRepository, $userId);
 $sellService = new SellCurrencyService($currencyRepository, $walletRepository, $walletService, $userId);
 
+// Display the main app menu
 echo "\n\033[1m\033[4mCRYPTO CURRENCY APP\033[0m\n\n";
 
-echo "Your state of wallet at the moment:\n";
+echo "Your current wallet state:\n";
 $walletService->displayWalletState();
 
 while (true) {
@@ -103,9 +107,9 @@ while (true) {
     echo "Enter the number of your choice: ";
     $choice = trim(fgets(STDIN));
 
-    switch ($choice) {
-        case 1:
-            try {
+    try {
+        switch ($choice) {
+            case 1:
                 $topCryptos = $currencyRepository->getTop();
                 $output = new ConsoleOutput();
                 $table = new Table($output);
@@ -120,25 +124,17 @@ while (true) {
                     ]);
                 }
                 $table->render();
-            } catch (Exception $e) {
-                echo "An error occurred: " . $e->getMessage() . "\n";
-            }
-            break;
+                break;
 
-        case 2:
-            try {
+            case 2:
                 $symbol = strtoupper(trim(readline("Enter the symbol: ")));
                 $currencyInfo = $currencyRepository->search($symbol);
                 echo "Currency Name: " . $currencyInfo->getName() . "\n";
                 echo "Currency Symbol: " . $currencyInfo->getSymbol() . "\n";
                 echo "Current Price (USD): " . number_format($currencyInfo->getPrice(), 8) . "\n";
-            } catch (Exception $e) {
-                echo "An error occurred: " . $e->getMessage() . "\n";
-            }
-            break;
+                break;
 
-        case 3:
-            try {
+            case 3:
                 $symbol = strtoupper(trim(readline("Enter the symbol to buy: ")));
                 $amount = floatval(trim(readline("Enter the amount to buy: ")));
                 $balance = $walletService->getBalance();
@@ -148,26 +144,20 @@ while (true) {
 
                 if ($balance >= $totalCost) {
                     $buyService->execute($symbol, $amount);
+                    echo "Purchase successful.\n";
                 } else {
                     echo "\033[31mInsufficient balance. Please try again with a lower amount.\033[0m\n";
                 }
-            } catch (Exception $e) {
-                throw new TransactionFailedException("An error occurred: " . $e->getMessage() . "\n");
-            }
-            break;
+                break;
 
-        case 4:
-            try {
+            case 4:
                 $symbol = strtoupper(trim(readline("Enter the symbol to sell: ")));
                 $amount = floatval(trim(readline("Enter the amount to sell: ")));
                 $sellService->execute($symbol, $amount);
-            } catch (Exception $e) {
-                throw new TransactionFailedException("An error occurred: " . $e->getMessage() . "\n");
-            }
-            break;
+                echo "Sale successful.\n";
+                break;
 
-        case 5:
-            try {
+            case 5:
                 $output = new ConsoleOutput();
                 $table = new Table($output);
                 $table->setHeaders(['Type', 'Symbol', 'Amount', 'Price', 'Timestamp']);
@@ -183,20 +173,20 @@ while (true) {
                     ]);
                 }
                 $table->render();
-            } catch (Exception $e) {
-                throw new TransactionGetException("An error occurred: " . $e->getMessage() . "\n");
-            }
-            break;
+                break;
 
-        case 6:
-            $walletService->displayWalletState();
-            break;
+            case 6:
+                $walletService->displayWalletState();
+                break;
 
-        case 7:
-            exit;
+            case 7:
+                exit;
 
-        default:
-            echo "Invalid choice. Please try again.\n";
-            break;
+            default:
+                echo "Invalid choice. Please try again.\n";
+                break;
+        }
+    } catch (Exception $e) {
+        echo "An error occurred: " . $e->getMessage() . "\n";
     }
 }
